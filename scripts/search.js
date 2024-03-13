@@ -1,22 +1,42 @@
-document.getElementById('searchButton').addEventListener('click', function() {
-  var query = document.getElementById('searchInput').value;
-  var selectedResource = document.getElementById('searchSelect').value;
-
+function performSearch(action, value, resourceType) {
   hideResultContainer(); 
   showSpinner();
   setTimeout(function() {
-    if (selectedResource === 'People') {
-      searchCharacters(query);
-    } else if (selectedResource === 'Planet') {
-      searchPlanets(query);
-    } else if (selectedResource === 'Species') {
-      searchSpecies(query);
+    if (action === 'search') {
+      if (resourceType === 'People') {
+        searchCharacters(value);
+      } else if (resourceType === 'Planet') {
+        searchPlanets(value);
+      } else if (resourceType === 'Species') {
+        searchSpecies(value);
+      }
+    } else if (action === 'getById') {
+      if (resourceType === 'People') {
+        getCharacterById(value);
+      } else if (resourceType === 'Planet') {
+        getPlanetsById(value);
+      } else if (resourceType === 'Species') {
+        getSpeciesById(value);
+      }
     }
 
     hideSpinner();
     showResultContainer();
   }, 1000);
+}
+
+document.getElementById('searchButtonId').addEventListener('click', function() {
+  var id = document.getElementById('searchInputId').value;
+  var selectedResource = document.getElementById('searchSelectId').value;
+  performSearch('getById', id, selectedResource);
 });
+
+document.getElementById('searchButton').addEventListener('click', function() {
+  var query = document.getElementById('searchInput').value;
+  var selectedResource = document.getElementById('searchSelect').value;
+  performSearch('search', query, selectedResource);
+});
+
 function showSpinner() {
   var spinnerContainer = document.getElementById('spinner');
   spinnerContainer.style.visibility = 'visible';
@@ -43,7 +63,7 @@ function searchCharacters(query) {
 
   starWars.searchCharacters(query)
     .then(function(characters) {
-      var planetPromises = characters.results.map(function(character) {
+      var characterPromises = characters.results.map(function(character) {
         return starWars.getPlanetsById(getIdFromUrl(character.homeworld))
           .then(function(planet) {
             character.homeworld = planet.name;
@@ -53,47 +73,14 @@ function searchCharacters(query) {
           });
       });
 
-      return Promise.all(planetPromises)
+      return Promise.all(characterPromises)
         .then(function() {
           return characters;
         });
     })
     .then(function(characters) {
       characters.results.forEach(function(character) {
-        var article = document.createElement('article');
-        article.classList.add('message', 'is-dark');
-
-        var messageHeader = document.createElement('div');
-        messageHeader.classList.add('message-header');
-
-        var title = document.createElement('p');
-        title.textContent = character.name;
-
-        var deleteButton = document.createElement('button');
-        deleteButton.classList.add('delete');
-        deleteButton.setAttribute('aria-label', 'delete');
-
-        messageHeader.appendChild(title);
-        messageHeader.appendChild(deleteButton);
-
-        var messageBody = document.createElement('div');
-        messageBody.classList.add('message-body');
-
-        var characterInfo = '';
-        for (var key in character) {
-          if (character.hasOwnProperty(key)) {
-            if (key === 'homeworld') {
-              characterInfo += `<p><strong>${key}:</strong> ${character.homeworld}</p>`;
-            } else {
-              characterInfo += `<p><strong>${key}:</strong> ${character[key]}</p>`;
-            }
-          }
-        }
-        messageBody.innerHTML = characterInfo;  
-        article.appendChild(messageHeader);
-        article.appendChild(messageBody);
-
-        resultContainer.appendChild(article);
+        createAndDisplayDetails(character, resultContainer, 'character');
       });
 
       console.log(characters);
@@ -103,99 +90,137 @@ function searchCharacters(query) {
     });
 }
 
-function searchPlanets(query) {
+function createAndDisplayDetails(item, resourceType) {
   var resultContainer = document.getElementById('result-container');
   resultContainer.innerHTML = '';
 
-  starWars.searchPlanets(query)
-  .then(function(planets) {
-    planets.results.forEach(function(planet) {
-      var article = document.createElement('article');
-      article.classList.add('message', 'is-dark');
+  var article = document.createElement('article');
+  article.classList.add('message', 'is-dark');
 
-      var messageHeader = document.createElement('div');
-      messageHeader.classList.add('message-header');
+  var messageHeader = document.createElement('div');
+  messageHeader.classList.add('message-header');
 
-      var title = document.createElement('p');
-      title.textContent = planet.name;
+  var title = document.createElement('p');
+  title.textContent = item.name;
 
-      var deleteButton = document.createElement('button');
-      deleteButton.classList.add('delete');
-      deleteButton.setAttribute('aria-label', 'delete');
+  var deleteButton = document.createElement('button');
+  deleteButton.classList.add('delete');
+  deleteButton.setAttribute('aria-label', 'delete');
 
-      messageHeader.appendChild(title);
-      messageHeader.appendChild(deleteButton);
+  messageHeader.appendChild(title);
+  messageHeader.appendChild(deleteButton);
 
-      var messageBody = document.createElement('div');
-      messageBody.classList.add('message-body');
+  var messageBody = document.createElement('div');
+  messageBody.classList.add('message-body');
 
-      var planetInfo = '';
-      for (var key in planet) {
-        if (planet.hasOwnProperty(key)) {
-          planetInfo += `<p><strong>${key}:</strong> ${planet[key]}</p>`;
-        }
+  var itemInfo = '';
+  for (var key in item) {
+    if (item.hasOwnProperty(key) && key !== 'name') {
+      if (key === 'homeworld' && resourceType === 'character') {
+        itemInfo += `<p><strong>${key}:</strong> ${item.homeworld}</p>`;
+      } else {
+        itemInfo += `<p><strong>${key}:</strong> ${item[key]}</p>`;
       }
-      messageBody.innerHTML = planetInfo;
-      article.appendChild(messageHeader);
-      article.appendChild(messageBody);
+    }
+  }
+  messageBody.innerHTML = itemInfo;
+  article.appendChild(messageHeader);
+  article.appendChild(messageBody);
 
-      resultContainer.appendChild(article);
-    });
+  resultContainer.appendChild(article);
+}
 
-    console.log(planets);
-  })
-  .catch(function(error) {
-    console.log('searchPlanets error: ', error);
-  });
+function searchPlanets(query) {
+  searchResource(query, 'planet');
 }
 
 function searchSpecies(query) {
+  searchResource(query, 'species');
+}
+
+function searchResource(query, resourceType) {
   var resultContainer = document.getElementById('result-container');
   resultContainer.innerHTML = '';
 
-  starWars.searchSpecies(query)
-  .then(function(species) {
-    species.results.forEach(function(species) {
-      var article = document.createElement('article');
-      article.classList.add('message', 'is-dark');
+  var searchFunction = resourceType === 'planet' ? starWars.searchPlanets : starWars.searchSpecies;
 
-      var messageHeader = document.createElement('div');
-      messageHeader.classList.add('message-header');
+  searchFunction(query)
+    .then(function(data) {
+      data.results.forEach(function(item) {
+        createAndDisplayDetails(item, resultContainer, resourceType);
+      });
 
-      var title = document.createElement('p');
-      title.textContent = species.name;
-
-      var deleteButton = document.createElement('button');
-      deleteButton.classList.add('delete');
-      deleteButton.setAttribute('aria-label', 'delete');
-
-      messageHeader.appendChild(title);
-      messageHeader.appendChild(deleteButton);
-
-      var messageBody = document.createElement('div');
-      messageBody.classList.add('message-body');
-
-      var speciesInfo = '';
-      for (var key in species) {
-        if (species.hasOwnProperty(key)) {
-          speciesInfo += `<p><strong>${key}:</strong> ${species[key]}</p>`;
-        }
-      }
-      messageBody.innerHTML = speciesInfo;
-      article.appendChild(messageHeader);
-      article.appendChild(messageBody);
-
-      resultContainer.appendChild(article);
+      console.log(data);
+    })
+    .catch(function(error) {
+      console.log(resourceType + ' error: ', error);
     });
-
-    console.log(species);
-  })
-  .catch(function(error) {
-    console.log('searchSpecies error: ', error);
-  });
 }
 
 function getIdFromUrl(url) {
   var parts = url.split('/');
   return parts[parts.length - 2];
+}
+
+async function getCharacterById(id) {
+  try {
+    const character = await starWars.getCharactersById(id);
+    displayDetails(character, 'character');
+  } catch (error) {
+    console.error('Error fetching character by ID:', error);
+  }
+}
+
+async function getSpeciesById(id) {
+  try {
+    const species = await starWars.getSpeciesById(id);
+    displayDetails(species, 'species');
+  } catch (error) {
+    console.error('Error fetching species by ID:', error);
+  }
+}
+
+async function getPlanetsById(id) {
+  try {
+    const planet = await starWars.getPlanetsById(id);
+    displayDetails(planet, 'planet');
+  } catch (error) {
+    console.error('Error fetching planet by ID:', error);
+  }
+}
+
+function displayDetails(data, type) {
+  var resultContainer = document.getElementById('result-container');
+  resultContainer.innerHTML = '';
+
+  var article = document.createElement('article');
+  article.classList.add('message', 'is-dark');
+
+  var messageHeader = document.createElement('div');
+  messageHeader.classList.add('message-header');
+
+  var title = document.createElement('p');
+  title.textContent = data.name;
+
+  var deleteButton = document.createElement('button');
+  deleteButton.classList.add('delete');
+  deleteButton.setAttribute('aria-label', 'delete');
+
+  messageHeader.appendChild(title);
+  messageHeader.appendChild(deleteButton);
+
+  var messageBody = document.createElement('div');
+  messageBody.classList.add('message-body');
+
+  var info = '';
+  for (var key in data) {
+    if (data.hasOwnProperty(key)) {
+      info += `<p><strong>${key}:</strong> ${data[key]}</p>`;
+    }
+  }
+  messageBody.innerHTML = info;
+  article.appendChild(messageHeader);
+  article.appendChild(messageBody);
+
+  resultContainer.appendChild(article);
 }
